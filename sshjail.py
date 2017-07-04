@@ -117,17 +117,26 @@ class Connection(ConnectionBase):
         if 'sudo' in cmd:
             cmd = self._strip_sudo(executable, cmd)
 
+        user = self._play_context.become_user
+        if user != "root":
+            become = "-U %s" % user
+        else:
+            become = ""
+
         cmd = ' '.join([executable, '-c', pipes.quote(cmd)])
         if slpcmd:
-            cmd = '%s %s %s %s' % (self.get_jail_connector(), self.get_jail_id(), cmd, '&& sleep 0')
+            cmd = '%s %s %s %s %s' % (self.get_jail_connector(), become, self.get_jail_id(), cmd, '&& sleep 0')
         else:
-            cmd = '%s %s %s' % (self.get_jail_connector(), self.get_jail_id(), cmd)
+            cmd = '%s % %s %s' % (self.get_jail_connector(), become, self.get_jail_id(), cmd)
 
         if self._play_context.become:
             # display.debug("_low_level_execute_command(): using become for this command")
+            self._play_context.become_user = "root"
             cmd = self._play_context.make_become_cmd(cmd)
+            self._play_context.become_user = user
 
         # display.vvv("JAIL (%s) %s" % (local_cmd), host=self.host)
+        display.v(" JAIL: %s" % cmd)
         return super(Connection, self).exec_command(cmd, in_data, True)
 
     def _normalize_path(self, path, prefix):
